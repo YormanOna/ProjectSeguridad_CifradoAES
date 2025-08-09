@@ -11,6 +11,6 @@ usuario_schema = UsuarioSchema()
 @jwt_required()
 @requiere_usuario
 def yo():
-    identidad = get_jwt_identity()
-    u = UsuarioServicio.obtener_por_id(identidad["id"])
+    identidad = int(get_jwt_identity())  # Convertir de string a int
+    u = UsuarioServicio.obtener_por_id(identidad)
     return usuario_schema.dump(u), 200

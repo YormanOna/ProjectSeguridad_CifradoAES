@@ -1,4 +1,4 @@
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from flask_jwt_extended import create_access_token, create_refresh_token
 from ..extensions import bcrypt
 from ..models.user import Usuario
@@ -12,12 +12,25 @@ class AutenticacionServicio:
         usuario = Usuario(correo=correo, nombre_usuario=nombre_usuario, contrasena_hash=hash_)
         UsuarioRepositorio.crear(usuario)
 
+        # Obtener o crear roles
         rol_user = RolRepositorio.obtener_o_crear("USER", "Rol de usuario")
         usuario.roles.append(rol_user)
+        print(f"🔧 Rol USER asignado a {nombre_usuario}")
 
         if es_admin:
             rol_admin = RolRepositorio.obtener_o_crear("ADMIN", "Rol administrador")
             usuario.roles.append(rol_admin)
+            print(f"🔧 Rol ADMIN asignado a {nombre_usuario}")
+        
+        # Asegurar que se guarden los cambios en la base de datos
+        from ..extensions import db
+        db.session.commit()
+        
+        # Verificar que los roles se guardaron
+        db.session.refresh(usuario)
+        roles_finales = [r.nombre for r in usuario.roles]
+        print(f"🔧 Roles finales de {nombre_usuario}: {roles_finales}")
+        
         return usuario
 
     @staticmethod
@@ -29,7 +42,18 @@ class AutenticacionServicio:
 
     @staticmethod
     def emitir_tokens(usuario: Usuario) -> dict:
-        identidad = {"id": usuario.id, "usuario": usuario.nombre_usuario, "roles": [r.nombre for r in usuario.roles]}
-        access = create_access_token(identity=identidad, additional_claims={"roles": identidad["roles"]})
+        # Convertir el ID del usuario a string (requerido por Flask-JWT-Extended)
+        identidad = str(usuario.id)
+        roles = [r.nombre for r in usuario.roles]
+        
+        # Debug: imprimir roles del usuario
+        print(f"Usuario: {usuario.nombre_usuario} - Roles: {roles}")
+        print(f"🔧 JWT identity será: {identidad} (tipo: {type(identidad)})")
+        
+        # Usar timezone aware datetime para evitar problemas con timestamps
+        ahora = datetime.now(timezone.utc)
+        expiracion = ahora + timedelta(minutes=30)
+        
+        access = create_access_token(identity=identidad, additional_claims={"roles": roles, "usuario": usuario.nombre_usuario})
         refresh = create_refresh_token(identity=identidad)
-        return {"access_token": access, "refresh_token": refresh, "expira_en": int((datetime.utcnow() + timedelta(minutes=30)).timestamp())}
+        return {"access_token": access, "refresh_token": refresh, "expira_en": int(expiracion.timestamp())}

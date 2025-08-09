@@ -11,7 +11,8 @@ class UsuarioRepositorio:
 
     @staticmethod
     def buscar_por_correo(correo: str) -> Optional[Usuario]:
-        return Usuario.query.filter_by(correo=correo).first()
+        from sqlalchemy.orm import joinedload
+        return Usuario.query.options(joinedload(Usuario.roles)).filter_by(correo=correo).first()
 
     @staticmethod
     def buscar_por_nombre_usuario(nombre_usuario: str) -> Optional[Usuario]:

@@ -59,3 +59,10 @@ class ArchivoServicio:
         # 4) Descifrar
         datos = descifrar_aes_gcm(dek, archivo.nonce, archivo.tag, blob)
         return datos
+
+    @staticmethod
+    def obtener_datos_cifrados(archivo: Archivo) -> bytes:
+        """Obtener datos cifrados sin descifrar"""
+        # Leer blob cifrado directamente del storage
+        blob = leer_blob(archivo.backend_almacenamiento, archivo.ruta_almacenamiento, archivo.blob_cifrado)
+        return blob

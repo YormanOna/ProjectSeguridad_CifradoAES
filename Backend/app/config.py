@@ -19,6 +19,6 @@ def cargar_configuracion(app, config_name=None):
     )
 
     app.config["MASTER_SECRET"] = os.getenv("MASTER_SECRET", "cambia-esto")
-    app.config["FILE_STORAGE_BACKEND"] = os.getenv("FILE_STORAGE_BACKEND", "db_blob")
-    app.config["FILE_STORAGE_PATH"] = os.getenv("FILE_STORAGE_PATH", "./data_archivos")
+    app.config["FILE_STORAGE_BACKEND"] = os.getenv("FILE_STORAGE_BACKEND", "fs")  # Cambiar a fs por defecto
+    app.config["FILE_STORAGE_PATH"] = os.getenv("FILE_STORAGE_PATH", "./app/data_archivos")  # Ruta absoluta
     app.config["MAX_CONTENT_LENGTH"] = int(os.getenv("MAX_CONTENT_LENGTH", "52428800"))

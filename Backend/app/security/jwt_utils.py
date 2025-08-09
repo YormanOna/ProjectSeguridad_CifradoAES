@@ -22,6 +22,12 @@ def requiere_roles(*roles_requeridos: str) -> Callable:
             verify_jwt_in_request()
             claims = get_jwt() or {}
             roles = claims.get("roles", [])
+            
+            # Debug: imprimir información del token
+            print(f"JWT Claims: {claims}")
+            print(f"Roles en token: {roles}")
+            print(f"Roles requeridos: {roles_requeridos}")
+            
             if not any(r in roles for r in roles_requeridos):
                 return jsonify({"mensaje": "No autorizado. Rol requerido.", "roles_requeridos": roles_requeridos}), 403
             return fn(*args, **kwargs)
@@ -54,14 +60,17 @@ def registrar_callbacks_jwt(jwt_manager) -> None:
     """
     @jwt_manager.unauthorized_loader
     def _sin_autorizacion(mensaje: str):
+        print(f"🚫 JWT unauthorized_loader: {mensaje}")  # Debug
         return jsonify({"mensaje": "Token no enviado o cabecera inválida", "detalle": mensaje}), 401
 
     @jwt_manager.invalid_token_loader
     def _token_invalido(motivo: str):
+        print(f"🚫 JWT invalid_token_loader: {motivo}")  # Debug
         return jsonify({"mensaje": "Token inválido", "detalle": motivo}), 401
 
     @jwt_manager.expired_token_loader
     def _token_expirado(cabecera, datos):
+        print(f"🚫 JWT expired_token_loader: {datos}")  # Debug
         return jsonify({"mensaje": "Token expirado", "tipo": datos.get("type", "access")}), 401
 
     @jwt_manager.needs_fresh_token_loader

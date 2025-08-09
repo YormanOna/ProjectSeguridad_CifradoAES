@@ -31,10 +31,11 @@ def derivar_kek(master: bytes,
                 "parallelism": 2,
                 "hash_len": 32
             }
+        # Usar los parámetros requeridos por la versión actual de cryptography
         kdf = Argon2id(
-            memory_cost=params["memory_cost"],
-            time_cost=params["time_cost"],
-            parallelism=params["parallelism"],
+            iterations=params["time_cost"],     # Requerido como posicional
+            lanes=params["parallelism"],        # Requerido como posicional
+            memory_cost=params["memory_cost"],  # Requerido como posicional
             length=params["hash_len"],
             salt=salt,
         )

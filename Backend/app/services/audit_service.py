@@ -15,3 +15,18 @@ class AuditoriaServicio:
             detalles=detalles
         )
         return AuditoriaRepositorio.registrar(reg)
+    
+    @staticmethod
+    def registrar_simple(usuario_id: int, accion: str, detalles: str = None):
+        """Método simplificado para registro de auditoría desde admin"""
+        reg = RegistroAuditoria(
+            actor_usuario_id=usuario_id,
+            accion=accion,
+            tipo_recurso=None,
+            recurso_id=None,
+            ip=None,
+            agente_usuario=None,
+            estado="SUCCESS",
+            detalles={"mensaje": detalles} if detalles else None
+        )
+        return AuditoriaRepositorio.registrar(reg)
