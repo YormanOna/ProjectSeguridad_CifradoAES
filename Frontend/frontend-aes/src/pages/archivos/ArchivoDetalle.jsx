@@ -14,35 +14,107 @@ import {
   AlertTriangle,
   Eye,
   Info,
-  Activity
+  Activity,
+  RefreshCw
 } from "lucide-react";
 import { fmtBytes } from "../../utils/format";
+import api from "../../api/config";
 
-export default function ArchivoDetalle({ archivoId, onBack }) {
+export default function ArchivoDetalle({ archivoId, archivo: archivoData, onBack, onEliminar, eliminandoFiles }) {
   // Datos simulados para demo - en producción vendrían del backend
   const [archivo, setArchivo] = useState(null);
   const [loading, setLoading] = useState(true);
   const [historial, setHistorial] = useState([]);
+  const [descargando, setDescargando] = useState(false);
+  const [compartiendo, setCompartiendo] = useState(false);
+
+  // Función para descargar y descifrar el archivo
+  const descargarArchivo = async () => {
+    if (!archivo) return;
+    
+    setDescargando(true);
+    try {
+      const response = await api.get(`/archivos/descifrar/${archivo.id}`, {
+        responseType: 'blob'
+      });
+
+      const blob = response.data;
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = archivo.nombre_original;
+      document.body.appendChild(a);
+      a.click();
+      window.URL.revokeObjectURL(url);
+      document.body.removeChild(a);
+    } catch (error) {
+      console.error('Error:', error);
+      alert('Error al descargar el archivo');
+    } finally {
+      setDescargando(false);
+    }
+  };
+
+  // Función para compartir el archivo (descargar versión cifrada)
+  const compartirArchivo = async () => {
+    if (!archivo) return;
+    
+    setCompartiendo(true);
+    try {
+      const response = await api.get(`/archivos/descargar-cifrado/${archivo.id}`, {
+        responseType: 'blob'
+      });
+
+      const blob = response.data;
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `${archivo.nombre_original}.encrypted`;
+      document.body.appendChild(a);
+      a.click();
+      window.URL.revokeObjectURL(url);
+      document.body.removeChild(a);
+    } catch (error) {
+      console.error('Error:', error);
+      alert('Error al descargar el archivo cifrado');
+    } finally {
+      setCompartiendo(false);
+    }
+  };
 
   useEffect(() => {
-    // Simular carga de datos
-    setTimeout(() => {
-      setArchivo({
-        id: archivoId || 1234,
-        nombre_original: "documento_importante.pdf",
-        tipo_mime: "application/pdf",
-        tamano_bytes: 2048576, // 2MB
-        creado_en: new Date().toISOString(),
-        actualizado_en: new Date().toISOString(),
-        cifrado: "AES-256-GCM",
-        estado: "CIFRADO",
-        hash_verificacion: "a1b2c3d4e5f6789012345678901234567890abcdef1234567890abcdef123456789012345",
-        metadatos: {
-          version: 1,
-          autor: "Usuario Demo",
-          descripcion: "Archivo de ejemplo"
+    if (archivoData) {
+      setArchivo(archivoData);
+      setLoading(false);
+      
+      // Simular historial de actividad
+      setHistorial([
+        {
+          id: 1,
+          accion: "SUBIDA",
+          fecha: archivoData.creado_en,
+          detalles: "Archivo subido y cifrado exitosamente"
         }
-      });
+      ]);
+    } else {
+      // Fallback a datos simulados si no hay datos reales
+      setTimeout(() => {
+        setArchivo({
+          id: archivoId || 1234,
+          nombre_original: "documento_importante.pdf",
+          tipo_mime: "application/pdf",
+          tamano_bytes: 2048576, // 2MB
+          creado_en: new Date().toISOString(),
+          actualizado_en: new Date().toISOString(),
+          cifrado: "AES-256-GCM",
+          estado: "CIFRADO",
+          hash_verificacion: "a1b2c3d4e5f6789012345678901234567890abcdef1234567890abcdef123456789012345",
+          metadatos: {
+            version: 1,
+            autor: "Usuario Demo",
+            descripcion: "Archivo de ejemplo"
+          }
+        });
       
       setHistorial([
         {
@@ -64,10 +136,11 @@ export default function ArchivoDetalle({ archivoId, onBack }) {
           detalles: "Verificación de integridad completada - OK"
         }
       ]);
-      
-      setLoading(false);
-    }, 1000);
-  }, [archivoId]);
+        
+        setLoading(false);
+      }, 1000);
+    }
+  }, [archivoId, archivoData]);
 
   if (loading) {
     return (
@@ -196,23 +269,31 @@ export default function ArchivoDetalle({ archivoId, onBack }) {
                   <div className="space-y-3">
                     <div className="flex justify-between">
                       <span className="text-slate-400">Algoritmo:</span>
-                      <span className="text-white font-mono">{archivo.cifrado}</span>
+                      <span className="text-white font-mono">{archivo.cifrado || 'AES-256-GCM'}</span>
                     </div>
                     <div className="flex justify-between">
                       <span className="text-slate-400">Estado:</span>
                       <div className="flex items-center space-x-2">
                         <div className="w-2 h-2 bg-green-400 rounded-full animate-pulse"></div>
-                        <span className="text-green-400">{archivo.estado}</span>
+                        <span className="text-green-400">CIFRADO</span>
                       </div>
                     </div>
                     <div>
-                      <span className="text-slate-400 block mb-2">Hash de Verificación:</span>
+                    <span className="text-slate-400 font-medium">Hash de Verificación</span>
+                    <div className="mt-2">
                       <div className="bg-slate-800/50 border border-slate-600/50 rounded-lg p-3 relative group">
-                        <span className="text-amber-300 font-mono text-sm break-all leading-relaxed">
-                          {archivo.hash_verificacion}
-                        </span>
+                        {archivo.hash_verificacion ? (
+                          <span className="text-amber-300 font-mono text-sm break-all leading-relaxed">
+                            {archivo.hash_verificacion}
+                          </span>
+                        ) : (
+                          <span className="text-slate-500 text-sm italic">
+                            Hash no disponible para este archivo
+                          </span>
+                        )}
                         <div className="absolute inset-0 bg-gradient-to-r from-transparent via-amber-500/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300 rounded-lg pointer-events-none"></div>
                       </div>
+                    </div>
                     </div>
                   </div>
                 </div>
@@ -280,19 +361,49 @@ export default function ArchivoDetalle({ archivoId, onBack }) {
         <h3 className="text-lg font-semibold text-white mb-6">Acciones Disponibles</h3>
         
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          <button className="flex items-center justify-center space-x-3 p-4 bg-green-600/20 border border-green-500/30 rounded-xl text-green-200 hover:bg-green-600/30 transition-colors duration-200">
-            <Download className="w-5 h-5" />
-            <span>Descargar y Descifrar</span>
+          <button 
+            onClick={descargarArchivo}
+            disabled={descargando}
+            className="flex items-center justify-center space-x-3 p-4 bg-green-600/20 border border-green-500/30 rounded-xl text-green-200 hover:bg-green-600/30 transition-colors duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            {descargando ? (
+              <RefreshCw className="w-5 h-5 animate-spin" />
+            ) : (
+              <Download className="w-5 h-5" />
+            )}
+            <span>{descargando ? 'Descargando...' : 'Descargar y Descifrar'}</span>
           </button>
           
-          <button className="flex items-center justify-center space-x-3 p-4 bg-blue-600/20 border border-blue-500/30 rounded-xl text-blue-200 hover:bg-blue-600/30 transition-colors duration-200">
-            <Share2 className="w-5 h-5" />
-            <span>Compartir</span>
+          <button 
+            onClick={compartirArchivo}
+            disabled={compartiendo}
+            className="flex items-center justify-center space-x-3 p-4 bg-blue-600/20 border border-blue-500/30 rounded-xl text-blue-200 hover:bg-blue-600/30 transition-colors duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            {compartiendo ? (
+              <RefreshCw className="w-5 h-5 animate-spin" />
+            ) : (
+              <Share2 className="w-5 h-5" />
+            )}
+            <span>{compartiendo ? 'Descargando...' : 'Compartir (Cifrado)'}</span>
           </button>
           
-          <button className="flex items-center justify-center space-x-3 p-4 bg-red-600/20 border border-red-500/30 rounded-xl text-red-200 hover:bg-red-600/30 transition-colors duration-200">
-            <Trash2 className="w-5 h-5" />
-            <span>Eliminar</span>
+          <button 
+            onClick={() => {
+              onEliminar(archivoId, archivo.nombre_original);
+              // Después de eliminar, volver a la vista de lista
+              setTimeout(() => {
+                onBack();
+              }, 1000);
+            }}
+            disabled={eliminandoFiles && eliminandoFiles.has(archivoId)}
+            className="flex items-center justify-center space-x-3 p-4 bg-red-600/20 border border-red-500/30 rounded-xl text-red-200 hover:bg-red-600/30 transition-colors duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            {eliminandoFiles && eliminandoFiles.has(archivoId) ? (
+              <RefreshCw className="w-5 h-5 animate-spin" />
+            ) : (
+              <Trash2 className="w-5 h-5" />
+            )}
+            <span>{eliminandoFiles && eliminandoFiles.has(archivoId) ? 'Eliminando...' : 'Eliminar'}</span>
           </button>
         </div>
       </div>
@@ -305,20 +416,26 @@ export default function ArchivoDetalle({ archivoId, onBack }) {
         </div>
         
         <div className="space-y-4">
-          {historial.map((evento) => (
+          {historial && historial.length > 0 ? historial.map((evento) => (
             <div key={evento.id} className="flex items-start space-x-4 p-4 bg-slate-700/30 rounded-xl">
               <div className="flex-shrink-0 w-3 h-3 bg-blue-400 rounded-full mt-2"></div>
               <div className="flex-1">
                 <div className="flex items-center justify-between">
-                  <h4 className="text-white font-medium">{evento.accion.replace('_', ' ')}</h4>
+                  <h4 className="text-white font-medium">
+                    {evento.accion ? evento.accion.replace('_', ' ') : 'Actividad'}
+                  </h4>
                   <span className="text-slate-400 text-sm">
                     {new Date(evento.fecha).toLocaleString()}
                   </span>
                 </div>
-                <p className="text-slate-300 text-sm mt-1">{evento.detalles}</p>
+                <p className="text-slate-300 text-sm mt-1">{evento.detalles || 'Sin detalles'}</p>
               </div>
             </div>
-          ))}
+          )) : (
+            <div className="p-4 bg-slate-700/30 rounded-xl text-center">
+              <p className="text-slate-400">No hay historial de actividad disponible</p>
+            </div>
+          )}
         </div>
       </div>
     </div>

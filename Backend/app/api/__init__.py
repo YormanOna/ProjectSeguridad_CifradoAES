@@ -7,6 +7,7 @@ from .audit_controller import bp as audit_bp
 from .admin_controller import bp as admin_bp
 from .dashboard_controller import bp as dashboard_bp
 from .debug_controller import bp as debug_bp
+from .file_crypto_controller import bp as file_crypto_bp
 
 def registrar_blueprints(app: Flask):
     app.register_blueprint(auth_bp, url_prefix="/api/auth")
@@ -17,3 +18,4 @@ def registrar_blueprints(app: Flask):
     app.register_blueprint(admin_bp, url_prefix="/api/admin")
     app.register_blueprint(dashboard_bp, url_prefix="/api/dashboard")
     app.register_blueprint(debug_bp, url_prefix="/api/debug")
+    app.register_blueprint(file_crypto_bp, url_prefix="/api/archivos")

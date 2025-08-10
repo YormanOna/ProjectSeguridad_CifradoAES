@@ -8,6 +8,7 @@ import Registro from "./pages/auth/Registro";
 import Dashboard from "./pages/dashboard/Dashboard";
 import ArchivosListado from "./pages/archivos/ArchivosListado";
 import ArchivoSubir from "./pages/archivos/ArchivoSubir";
+import DescifrarArchivo from "./pages/archivos/DescifrarArchivo";
 import ClaveGestion from "./pages/claves/ClaveGestion";
 import AuditoriaListado from "./pages/auditoria/AuditoriaListado";
 import UsuariosListado from "./pages/admin/UsuariosListado";
@@ -39,6 +40,7 @@ export default function App() {
     switch (ruta) {
       case "archivos": return <ArchivosListado recientes={recientes} recargar={recargarArchivos} />;
       case "subir": return <ArchivoSubir onUploaded={onUploaded} />;
+      case "descifrar": return <DescifrarArchivo />;
       case "claves": return <ClaveGestion />;
       case "auditoria": return <AuditoriaListado />;
       case "usuarios": return <UsuariosListado />;

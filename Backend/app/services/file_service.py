@@ -10,14 +10,37 @@ from ..utils.storage import guardar_blob, leer_blob
 class ArchivoServicio:
     @staticmethod
     def cifrar_y_guardar(propietario_id: int, nombre: str, tipo_mime: str | None, data: bytes, ip: str | None, user_agent: str | None) -> Archivo:
-        # 1) Obtener UEK del usuario (desenvuelta)
-        uek = ClaveServicio.obtener_uek_desenvuelta_para_usuario(propietario_id)
+        # 1) Calcular hash de verificación del archivo original
+        import hashlib
+        hash_verificacion = hashlib.sha256(data).hexdigest()
+        
+        # 2) Obtener la primera clave activa del usuario (en lugar de UEK del sistema)
+        from ..models.encryption_key import ClaveCifradoUsuario
+        from ..cryptoutils.kdf import derivar_kek
+        import os
+        
+        # Buscar una clave activa del usuario
+        clave_usuario = ClaveCifradoUsuario.query.filter_by(
+            usuario_id=propietario_id,
+            activa=True
+        ).first()
+        
+        if not clave_usuario:
+            raise ValueError("El usuario no tiene claves de cifrado activas. Debe crear una clave en 'Gestión de Claves'.")
+        
+        # Obtener MASTER_SECRET y derivar KEK
+        master_secret = os.getenv("MASTER_SECRET", "cambia-esto").encode()
+        kek, _, _ = derivar_kek(master_secret, clave_usuario.kdf_salt)
+        
+        # Desenvolver la clave real del usuario
+        clave_usuario_real = desarrollar(kek, clave_usuario.uek_envuelta)
+        
         # 2) Generar DEK aleatoria
         dek = generar_bytes_aleatorios(32)
         # 3) Cifrar datos con AES-GCM
         nonce, tag, cifrado = cifrar_aes_gcm(dek, data)
-        # 4) Envolver DEK con UEK
-        dek_envuelta = envolver(uek, dek)
+        # 4) Envolver DEK con la clave del usuario (no con UEK del sistema)
+        dek_envuelta = envolver(clave_usuario_real, dek)
         # 5) Guardar blob según backend
         backend, ruta, blob = guardar_blob(nombre, cifrado, tipo_mime)
         # 6) Persistir metadatos
@@ -32,6 +55,7 @@ class ArchivoServicio:
             dek_envuelta=dek_envuelta,
             nonce=nonce,
             tag=tag,
+            hash_verificacion=hash_verificacion,  # Usar campo directo
             metadatos={"version": 1},
         )
         archivo = ArchivoRepositorio.crear(archivo)

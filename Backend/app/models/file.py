@@ -18,6 +18,7 @@ class Archivo(db.Model):
     cifrado = db.Column(db.String(50), nullable=False, default="AES-256-GCM")
     nonce = db.Column(db.LargeBinary, nullable=False)
     tag = db.Column(db.LargeBinary, nullable=False)
+    hash_verificacion = db.Column(db.String(128), nullable=True)  # Hash SHA-256 del archivo original
 
     metadatos = db.Column(db.JSON, nullable=True)
     creado_en = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)

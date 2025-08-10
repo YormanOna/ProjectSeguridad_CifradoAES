@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import api from "../../api/config";
 import { saveBlob, fmtBytes } from "../../utils/format";
+import { apiEliminarArchivo } from "../../api/archivos.api";
 import ArchivoDetalle from "./ArchivoDetalle";
 import { 
   Files, 
@@ -40,6 +41,7 @@ export default function ArchivosListado({ recientes = [], recargar = 0 }) {
   const [filterType, setFilterType] = useState("all");
   const [sortBy, setSortBy] = useState("recent");
   const [downloadingFiles, setDownloadingFiles] = useState(new Set());
+  const [eliminandoFiles, setEliminandoFiles] = useState(new Set()); // Nuevo estado
   const [archivos, setArchivos] = useState([]); // Nueva state para archivos de la BD
   
   // Estados para modales
@@ -223,6 +225,38 @@ export default function ArchivosListado({ recientes = [], recargar = 0 }) {
       setMsg(`❌ Error al re-cifrar "${nombreOriginal}"`);
     } finally {
       setProcesandoCifrado(prev => {
+        const newSet = new Set(prev);
+        newSet.delete(archivoId);
+        return newSet;
+      });
+    }
+  };
+
+  const eliminarArchivo = async (archivoId, nombreArchivo) => {
+    if (!confirm(`¿Estás seguro de que quieres eliminar "${nombreArchivo}"? Esta acción no se puede deshacer.`)) {
+      return;
+    }
+
+    setEliminandoFiles(prev => new Set(prev).add(archivoId));
+    
+    try {
+      await apiEliminarArchivo(archivoId);
+      setMsg(`✅ Archivo "${nombreArchivo}" eliminado exitosamente`);
+      
+      // Remover archivo de la lista local
+      setArchivos(prev => prev.filter(arch => arch.id !== archivoId));
+      
+      // Actualizar stats
+      setStats(prev => ({
+        ...prev,
+        total: prev.total - 1
+      }));
+      
+    } catch (error) {
+      console.error("Error eliminando archivo:", error);
+      setMsg(`❌ Error al eliminar "${nombreArchivo}": ${error.response?.data?.mensaje || error.message}`);
+    } finally {
+      setEliminandoFiles(prev => {
         const newSet = new Set(prev);
         newSet.delete(archivoId);
         return newSet;
@@ -541,9 +575,17 @@ export default function ArchivosListado({ recientes = [], recargar = 0 }) {
                               <span>{procesandoCifrado.has(archivo.id) ? 'Cifrando...' : 'Cifrar nuevamente'}</span>
                             </button>
                             <div className="border-t border-slate-700 my-2"></div>
-                            <button className="w-full flex items-center space-x-2 px-3 py-2 text-red-400 hover:text-red-300 hover:bg-red-600/10 rounded-lg transition-colors duration-200">
-                              <Trash2 className="w-4 h-4" />
-                              <span>Eliminar</span>
+                            <button 
+                              onClick={() => eliminarArchivo(archivo.id, archivo.nombre_original)}
+                              disabled={eliminandoFiles.has(archivo.id)}
+                              className="w-full flex items-center space-x-2 px-3 py-2 text-red-400 hover:text-red-300 hover:bg-red-600/10 rounded-lg transition-colors duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
+                            >
+                              {eliminandoFiles.has(archivo.id) ? (
+                                <RefreshCw className="w-4 h-4 animate-spin" />
+                              ) : (
+                                <Trash2 className="w-4 h-4" />
+                              )}
+                              <span>{eliminandoFiles.has(archivo.id) ? 'Eliminando...' : 'Eliminar'}</span>
                             </button>
                           </div>
                         </div>
@@ -647,10 +689,13 @@ export default function ArchivosListado({ recientes = [], recargar = 0 }) {
     return (
       <ArchivoDetalle 
         archivoId={archivoSeleccionado}
+        archivo={archivos.find(arch => arch.id === archivoSeleccionado)}
         onBack={() => {
           setVistaActual('lista');
           setArchivoSeleccionado(null);
         }}
+        onEliminar={eliminarArchivo}
+        eliminandoFiles={eliminandoFiles}
       />
     );
   }

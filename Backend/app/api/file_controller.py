@@ -19,6 +19,7 @@ def cifrar():
     
     if "archivo" not in request.files:
         return jsonify({"mensaje": "Falta archivo"}), 400
+        
     archivo_subido = request.files["archivo"]
     data = archivo_subido.read()
     arch = ArchivoServicio.cifrar_y_guardar(
@@ -42,6 +43,19 @@ def descifrar(archivo_id: int):
         return jsonify({"mensaje": "No encontrado o sin permiso"}), 404
     datos = ArchivoServicio.descargar_y_descifrar(arch, usuario_id)
     return send_file(BytesIO(datos), as_attachment=True, download_name=arch.nombre_original, mimetype=arch.tipo_mime or "application/octet-stream")
+
+@bp.get("/<int:archivo_id>")
+@jwt_required()
+@requiere_usuario
+def obtener_archivo(archivo_id: int):
+    """Obtener detalles de un archivo específico"""
+    usuario_id = int(get_jwt_identity())
+    
+    arch = ArchivoRepositorio.buscar_por_id(archivo_id)
+    if not arch or arch.propietario_id != usuario_id:
+        return jsonify({"mensaje": "No encontrado o sin permiso"}), 404
+    
+    return jsonify(resp_schema.dump(arch)), 200
 
 @bp.get("/")
 @jwt_required()
@@ -84,3 +98,21 @@ def descargar_cifrado(archivo_id: int):
         )
     except Exception as e:
         return jsonify({"mensaje": f"Error descargando archivo cifrado: {str(e)}"}), 500
+
+@bp.delete("/<int:archivo_id>")
+@jwt_required()
+@requiere_usuario
+def eliminar_archivo(archivo_id: int):
+    """Eliminar archivo por ID (solo el propietario)"""
+    usuario_id = int(get_jwt_identity())
+    
+    arch = ArchivoRepositorio.buscar_por_id(archivo_id)
+    if not arch or arch.propietario_id != usuario_id:
+        return jsonify({"mensaje": "No encontrado o sin permiso"}), 404
+    
+    try:
+        # Eliminar archivo de la base de datos
+        ArchivoRepositorio.eliminar(arch)
+        return jsonify({"mensaje": "Archivo eliminado exitosamente"}), 200
+    except Exception as e:
+        return jsonify({"mensaje": f"Error eliminando archivo: {str(e)}"}), 500

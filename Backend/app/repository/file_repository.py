@@ -12,3 +12,9 @@ class ArchivoRepositorio:
     @staticmethod
     def buscar_por_id(archivo_id: int) -> Optional[Archivo]:
         return Archivo.query.get(archivo_id)
+        
+    @staticmethod
+    def eliminar(archivo: Archivo) -> None:
+        """Eliminar archivo de la base de datos"""
+        db.session.delete(archivo)
+        db.session.commit()

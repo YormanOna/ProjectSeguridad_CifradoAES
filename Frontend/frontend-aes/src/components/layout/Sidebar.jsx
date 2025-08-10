@@ -1,4 +1,4 @@
-import { BarChart3, Files, Upload, Key, Shield, Activity, Users, FileText } from "lucide-react";
+import { BarChart3, Files, Upload, Key, Shield, Activity, Users, FileText, Lock, Unlock } from "lucide-react";
 import { getCurrentUser } from "../../utils/auth";
 
 export default function Sidebar({ onNavigate, current }) {
@@ -9,6 +9,7 @@ export default function Sidebar({ onNavigate, current }) {
     { key: "dashboard", label: "Panel Principal", icon: BarChart3, color: "text-blue-400" },
     { key: "archivos", label: "Mis Archivos", icon: Files, color: "text-green-400" },
     { key: "subir", label: "Subir Archivo", icon: Upload, color: "text-purple-400" },
+    { key: "descifrar", label: "Descifrar Archivo", icon: Unlock, color: "text-lime-400" },
     { key: "claves", label: "Gestión de Claves", icon: Key, color: "text-yellow-400" },
   ];
 

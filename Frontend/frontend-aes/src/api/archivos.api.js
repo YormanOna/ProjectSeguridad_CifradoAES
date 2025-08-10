@@ -11,3 +11,7 @@ export const apiSubirArchivo = (file) => {
 // Descarga archivo descifrado por ID (propietario)
 export const apiDescargarArchivo = (id) =>
   http.get(`/archivos/descifrar/${id}`, { responseType: "blob" });
+
+// Eliminar archivo por ID
+export const apiEliminarArchivo = (id) =>
+  http.delete(`/archivos/${id}`).then(r => r.data);
