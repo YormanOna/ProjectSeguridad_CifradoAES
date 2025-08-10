@@ -20,7 +20,10 @@ import {
   TrendingUp, 
   Clock,
   Download,
-  Settings
+  Settings,
+  X,
+  Save,
+  RotateCcw
 } from "lucide-react";
 
 /**
@@ -34,6 +37,11 @@ export default function AuditoriaListado() {
   const [filterAction, setFilterAction] = useState("all");
   const [filterStatus, setFilterStatus] = useState("all");
   const [dateRange, setDateRange] = useState("all");
+  
+  // Estados para modales
+  const [modalConfiguracion, setModalConfiguracion] = useState(false);
+  const [modalDetalles, setModalDetalles] = useState(false);
+  const [eventoSeleccionado, setEventoSeleccionado] = useState(null);
 
   // Obtener información del usuario actual
   const currentUser = getCurrentUser();
@@ -167,6 +175,17 @@ export default function AuditoriaListado() {
 
     return matchesSearch && matchesAction && matchesStatus && matchesDate;
   });
+
+  // Función para abrir modal de detalles
+  const verDetalles = (evento) => {
+    setEventoSeleccionado(evento);
+    setModalDetalles(true);
+  };
+
+  // Función para abrir modal de configuración
+  const abrirConfiguracion = () => {
+    setModalConfiguracion(true);
+  };
 
   if (!currentUser || !currentUser.isAdmin) {
     return (
@@ -353,7 +372,10 @@ export default function AuditoriaListado() {
                 variant="secondary"
                 className="text-sm px-3 py-1.5"
               />
-              <button className="flex items-center space-x-2 px-3 py-1.5 bg-slate-700/50 border border-slate-600/50 rounded-lg text-slate-300 hover:text-white transition-colors duration-200">
+              <button 
+                onClick={abrirConfiguracion}
+                className="flex items-center space-x-2 px-3 py-1.5 bg-slate-700/50 border border-slate-600/50 rounded-lg text-slate-300 hover:text-white transition-colors duration-200"
+              >
                 <Settings className="w-4 h-4" />
                 <span className="text-sm">Configurar</span>
               </button>
@@ -455,7 +477,10 @@ export default function AuditoriaListado() {
                       </td>
                       
                       <td className="p-4 text-center">
-                        <button className="p-2 text-slate-400 hover:text-white hover:bg-slate-600/50 rounded-lg transition-colors duration-200">
+                        <button 
+                          onClick={() => verDetalles(item)}
+                          className="p-2 text-slate-400 hover:text-white hover:bg-slate-600/50 rounded-lg transition-colors duration-200"
+                        >
                           <Eye className="w-4 h-4" />
                         </button>
                       </td>
@@ -482,6 +507,221 @@ export default function AuditoriaListado() {
           </div>
         </div>
       </div>
+
+      {/* Modal de Detalles del Evento */}
+      {modalDetalles && eventoSeleccionado && (
+        <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-[10000] p-4">
+          <div className="bg-slate-800 border border-slate-700/50 rounded-2xl shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+            <div className="flex items-center justify-between p-6 border-b border-slate-700/50">
+              <div className="flex items-center space-x-3">
+                <div className="bg-blue-500/20 rounded-xl p-2">
+                  <Eye className="w-6 h-6 text-blue-400" />
+                </div>
+                <div>
+                  <h3 className="text-lg font-semibold text-white">Detalles del Evento</h3>
+                  <p className="text-sm text-slate-400">Información completa del registro de auditoría</p>
+                </div>
+              </div>
+              <button
+                onClick={() => {
+                  setModalDetalles(false);
+                  setEventoSeleccionado(null);
+                }}
+                className="text-slate-400 hover:text-white p-2 transition-colors"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="p-6">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                {/* Información Básica */}
+                <div className="space-y-4">
+                  <div>
+                    <label className="block text-slate-400 text-sm font-medium mb-2">Información Básica</label>
+                    <div className="bg-slate-700/30 rounded-xl p-4 space-y-3">
+                      <div className="flex justify-between">
+                        <span className="text-slate-400">Fecha y Hora:</span>
+                        <span className="text-white">
+                          {new Date(eventoSeleccionado.creado_en).toLocaleString()}
+                        </span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-slate-400">Acción:</span>
+                        <span className="text-white font-semibold">{eventoSeleccionado.accion}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-slate-400">Estado:</span>
+                        <div className={`px-2 py-1 rounded-lg text-xs border w-fit ${
+                          eventoSeleccionado.estado === 'SUCCESS' 
+                            ? 'bg-green-500/20 border-green-500/30 text-green-200'
+                            : eventoSeleccionado.estado === 'FAILED'
+                            ? 'bg-red-500/20 border-red-500/30 text-red-200'
+                            : 'bg-yellow-500/20 border-yellow-500/30 text-yellow-200'
+                        }`}>
+                          {eventoSeleccionado.estado}
+                        </div>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-slate-400">Usuario ID:</span>
+                        <span className="text-white">{eventoSeleccionado.usuario_id || 'N/A'}</span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Información Técnica */}
+                <div className="space-y-4">
+                  <div>
+                    <label className="block text-slate-400 text-sm font-medium mb-2">Información Técnica</label>
+                    <div className="bg-slate-700/30 rounded-xl p-4 space-y-3">
+                      <div className="flex justify-between">
+                        <span className="text-slate-400">IP Address:</span>
+                        <span className="text-white font-mono text-sm">{eventoSeleccionado.ip || 'N/A'}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-slate-400">Recurso:</span>
+                        <span className="text-white">{eventoSeleccionado.tipo_recurso || 'N/A'}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-slate-400">ID Recurso:</span>
+                        <span className="text-white font-mono text-sm">{eventoSeleccionado.recurso_id || 'N/A'}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-slate-400">ID Evento:</span>
+                        <span className="text-white font-mono text-sm">{eventoSeleccionado.id}</span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Detalles Adicionales */}
+              {eventoSeleccionado.detalles && (
+                <div className="mt-6">
+                  <label className="block text-slate-400 text-sm font-medium mb-2">Detalles Adicionales</label>
+                  <div className="bg-slate-700/30 rounded-xl p-4">
+                    <pre className="text-slate-300 text-sm whitespace-pre-wrap font-mono">
+                      {typeof eventoSeleccionado.detalles === 'object' 
+                        ? JSON.stringify(eventoSeleccionado.detalles, null, 2)
+                        : eventoSeleccionado.detalles}
+                    </pre>
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal de Configuración */}
+      {modalConfiguracion && (
+        <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-[10000] p-4">
+          <div className="bg-slate-800 border border-slate-700/50 rounded-2xl shadow-xl max-w-md w-full max-h-[90vh] overflow-y-auto">
+            <div className="flex items-center justify-between p-6 border-b border-slate-700/50">
+              <div className="flex items-center space-x-3">
+                <div className="bg-purple-500/20 rounded-xl p-2">
+                  <Settings className="w-6 h-6 text-purple-400" />
+                </div>
+                <div>
+                  <h3 className="text-lg font-semibold text-white">Configuración de Auditoría</h3>
+                  <p className="text-sm text-slate-400">Personalizar opciones de monitoreo</p>
+                </div>
+              </div>
+              <button
+                onClick={() => setModalConfiguracion(false)}
+                className="text-slate-400 hover:text-white p-2 transition-colors"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="p-6 space-y-6">
+              {/* Configuración de Retención */}
+              <div>
+                <label className="block text-slate-300 text-sm font-medium mb-3">
+                  Retención de Logs
+                </label>
+                <select className="w-full px-3 py-3 bg-slate-700/50 border border-slate-600/50 rounded-xl text-white focus:outline-none focus:border-blue-500/50">
+                  <option value="30">30 días</option>
+                  <option value="90">90 días</option>
+                  <option value="180">6 meses</option>
+                  <option value="365">1 año</option>
+                </select>
+                <p className="text-xs text-slate-400 mt-2">
+                  Los logs se eliminarán automáticamente después del período seleccionado
+                </p>
+              </div>
+
+              {/* Configuración de Alertas */}
+              <div>
+                <label className="block text-slate-300 text-sm font-medium mb-3">
+                  Alertas de Seguridad
+                </label>
+                <div className="space-y-3">
+                  <label className="flex items-center space-x-3">
+                    <input 
+                      type="checkbox" 
+                      defaultChecked 
+                      className="w-4 h-4 text-blue-600 bg-slate-700 border-slate-600 rounded focus:ring-blue-500"
+                    />
+                    <span className="text-slate-300 text-sm">Intentos de acceso fallidos</span>
+                  </label>
+                  <label className="flex items-center space-x-3">
+                    <input 
+                      type="checkbox" 
+                      defaultChecked 
+                      className="w-4 h-4 text-blue-600 bg-slate-700 border-slate-600 rounded focus:ring-blue-500"
+                    />
+                    <span className="text-slate-300 text-sm">Cambios de permisos</span>
+                  </label>
+                  <label className="flex items-center space-x-3">
+                    <input 
+                      type="checkbox" 
+                      defaultChecked 
+                      className="w-4 h-4 text-blue-600 bg-slate-700 border-slate-600 rounded focus:ring-blue-500"
+                    />
+                    <span className="text-slate-300 text-sm">Actividad administrativa</span>
+                  </label>
+                </div>
+              </div>
+
+              {/* Configuración de Exportación */}
+              <div>
+                <label className="block text-slate-300 text-sm font-medium mb-3">
+                  Formato de Exportación por Defecto
+                </label>
+                <select className="w-full px-3 py-3 bg-slate-700/50 border border-slate-600/50 rounded-xl text-white focus:outline-none focus:border-blue-500/50">
+                  <option value="csv">CSV</option>
+                  <option value="json">JSON</option>
+                  <option value="xlsx">Excel (XLSX)</option>
+                </select>
+              </div>
+
+              {/* Botones */}
+              <div className="flex space-x-3 pt-4">
+                <button
+                  onClick={() => setModalConfiguracion(false)}
+                  className="flex-1 px-4 py-3 bg-slate-700/50 border border-slate-600/50 text-slate-300 rounded-xl hover:bg-slate-600/50 transition-colors"
+                >
+                  Cancelar
+                </button>
+                <button
+                  onClick={() => {
+                    // Aquí podrías agregar lógica para guardar configuración
+                    alert('Configuración guardada exitosamente');
+                    setModalConfiguracion(false);
+                  }}
+                  className="flex-1 bg-purple-600 hover:bg-purple-700 text-white px-4 py-3 rounded-xl flex items-center justify-center space-x-2 transition-colors"
+                >
+                  <Save className="w-4 h-4" />
+                  <span>Guardar</span>
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

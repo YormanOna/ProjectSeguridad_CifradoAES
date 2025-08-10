@@ -42,7 +42,7 @@ export default function App() {
       case "claves": return <ClaveGestion />;
       case "auditoria": return <AuditoriaListado />;
       case "usuarios": return <UsuariosListado />;
-      default: return <Dashboard />;
+      default: return <Dashboard onNavigate={setRuta} />;
     }
   };
 

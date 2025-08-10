@@ -36,7 +36,7 @@ export default function ArchivoDetalle({ archivoId, onBack }) {
         actualizado_en: new Date().toISOString(),
         cifrado: "AES-256-GCM",
         estado: "CIFRADO",
-        hash_verificacion: "a1b2c3d4e5f6...",
+        hash_verificacion: "a1b2c3d4e5f6789012345678901234567890abcdef1234567890abcdef123456789012345",
         metadatos: {
           version: 1,
           autor: "Usuario Demo",
@@ -205,9 +205,14 @@ export default function ArchivoDetalle({ archivoId, onBack }) {
                         <span className="text-green-400">{archivo.estado}</span>
                       </div>
                     </div>
-                    <div className="flex justify-between">
-                      <span className="text-slate-400">Hash:</span>
-                      <span className="text-white font-mono text-xs">{archivo.hash_verificacion}</span>
+                    <div>
+                      <span className="text-slate-400 block mb-2">Hash de Verificación:</span>
+                      <div className="bg-slate-800/50 border border-slate-600/50 rounded-lg p-3 relative group">
+                        <span className="text-amber-300 font-mono text-sm break-all leading-relaxed">
+                          {archivo.hash_verificacion}
+                        </span>
+                        <div className="absolute inset-0 bg-gradient-to-r from-transparent via-amber-500/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300 rounded-lg pointer-events-none"></div>
+                      </div>
                     </div>
                   </div>
                 </div>

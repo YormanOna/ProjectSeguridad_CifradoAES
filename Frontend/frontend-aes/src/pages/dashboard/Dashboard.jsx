@@ -13,7 +13,7 @@ import {
 } from "lucide-react";
 import api from "../../api/config";
 
-export default function Dashboard() {
+export default function Dashboard({ onNavigate }) {
   const [stats, setStats] = useState({
     totalArchivos: 0,
     archivosCifrados: 0,
@@ -36,15 +36,99 @@ export default function Dashboard() {
       setLoading(true);
       setError("");
       
-      // Solo cargar estadísticas usando la nueva configuración de axios
-      const response = await api.get('/dashboard/stats');
-      setStats(response.data);
-      setRecentActivity([]);  // Array vacío por ahora (activity route removido)
+      // Cargar estadísticas del dashboard
+      const statsResponse = await api.get('/dashboard/stats');
+      setStats(statsResponse.data);
+      
+      // Cargar actividad reciente desde auditoría (últimos 5 eventos)
+      try {
+        const activityResponse = await api.get('/admin/auditoria?limit=5');
+        const activityData = activityResponse.data.map(item => ({
+          id: item.id,
+          action: formatearAccion(item.accion),
+          file: item.tipo_recurso || 'Sistema',
+          time: formatearTiempo(item.creado_en),
+          status: item.estado === 'SUCCESS' ? 'success' : 'warning',
+          icon: getIconoActividad(item.accion)
+        }));
+        setRecentActivity(activityData);
+      } catch (activityError) {
+        console.error("Error cargando actividad reciente:", activityError);
+        // Si falla la actividad, usar datos de ejemplo
+        setRecentActivity([]);
+      }
+      
     } catch (err) {
       console.error("Error cargando datos del dashboard:", err);
       setError("Error al cargar los datos del dashboard");
     } finally {
       setLoading(false);
+    }
+  };
+
+  // Función para formatear acciones de auditoría
+  const formatearAccion = (accion) => {
+    const acciones = {
+      'CIFRAR': 'Archivo cifrado',
+      'DESCIFRAR': 'Archivo descifrado',
+      'SUBIR': 'Archivo subido',
+      'DESCARGAR': 'Archivo descargado',
+      'LOGIN': 'Inicio de sesión',
+      'LOGOUT': 'Cierre de sesión',
+      'USUARIO_CREADO': 'Usuario creado',
+      'USUARIO_ACTUALIZADO': 'Usuario actualizado',
+      'USUARIO_ACTIVADO': 'Usuario activado',
+      'USUARIO_SUSPENDIDO': 'Usuario suspendido',
+      'COMPARTIR': 'Archivo compartido',
+      'CLAVE_CREADA': 'Clave de cifrado creada',
+      'CLAVE_ROTADA': 'Clave de cifrado rotada'
+    };
+    return acciones[accion] || accion;
+  };
+
+  // Función para formatear tiempo relativo
+  const formatearTiempo = (fecha) => {
+    const ahora = new Date();
+    const fechaItem = new Date(fecha);
+    const diferencia = ahora - fechaItem;
+    
+    const minutos = Math.floor(diferencia / (1000 * 60));
+    const horas = Math.floor(diferencia / (1000 * 60 * 60));
+    const dias = Math.floor(diferencia / (1000 * 60 * 60 * 24));
+    
+    if (minutos < 1) return 'Hace un momento';
+    if (minutos < 60) return `Hace ${minutos} min`;
+    if (horas < 24) return `Hace ${horas}h`;
+    if (dias < 7) return `Hace ${dias}d`;
+    return fechaItem.toLocaleDateString();
+  };
+
+  // Función para obtener ícono según la acción
+  const getIconoActividad = (accion) => {
+    switch (accion) {
+      case 'CIFRAR':
+      case 'DESCIFRAR':
+        return Lock;
+      case 'SUBIR':
+      case 'DESCARGAR':
+        return FileText;
+      case 'LOGIN':
+      case 'LOGOUT':
+        return Users;
+      case 'COMPARTIR':
+        return Users;
+      case 'CLAVE_CREADA':
+      case 'CLAVE_ROTADA':
+        return Key;
+      default:
+        return Activity;
+    }
+  };
+
+  // Función para navegar a la página de auditoría
+  const verTodasActividades = () => {
+    if (onNavigate) {
+      onNavigate('auditoria');
     }
   };
 
@@ -154,7 +238,10 @@ export default function Dashboard() {
               <Activity className="w-6 h-6 text-blue-400" />
               <h2 className="text-xl font-semibold text-white">Actividad Reciente</h2>
             </div>
-            <button className="text-blue-400 hover:text-blue-300 text-sm font-medium">
+            <button 
+              onClick={verTodasActividades}
+              className="text-blue-400 hover:text-blue-300 text-sm font-medium transition-colors"
+            >
               Ver todo
             </button>
           </div>
@@ -176,24 +263,29 @@ export default function Dashboard() {
                 </div>
               ))
             ) : recentActivity.length > 0 ? (
-              recentActivity.map((activity) => (
-                <div
-                  key={activity.id}
-                  className="flex items-center space-x-4 p-4 bg-slate-700/30 border border-slate-600/30 rounded-xl hover:bg-slate-700/50 transition-colors duration-200"
-                >
-                  <div className={`w-3 h-3 rounded-full ${
-                    activity.status === 'success' ? 'bg-green-400' : 'bg-yellow-400'
-                  } animate-pulse`}></div>
-                  <div className="flex-1">
-                    <div className="flex items-center justify-between">
-                      <p className="text-white font-medium">{activity.action}</p>
-                      <span className="text-xs text-slate-400">{activity.time}</span>
+              recentActivity.map((activity) => {
+                const IconComponent = activity.icon;
+                return (
+                  <div
+                    key={activity.id}
+                    className="flex items-center space-x-4 p-4 bg-slate-700/30 border border-slate-600/30 rounded-xl hover:bg-slate-700/50 transition-colors duration-200"
+                  >
+                    <div className={`w-3 h-3 rounded-full ${
+                      activity.status === 'success' ? 'bg-green-400' : 'bg-yellow-400'
+                    }`}></div>
+                    <div className="flex-1">
+                      <div className="flex items-center justify-between">
+                        <p className="text-white font-medium">{activity.action}</p>
+                        <span className="text-xs text-slate-400">{activity.time}</span>
+                      </div>
+                      <p className="text-slate-400 text-sm">{activity.file}</p>
                     </div>
-                    <p className="text-slate-400 text-sm">{activity.file}</p>
+                    <IconComponent className={`w-5 h-5 ${
+                      activity.status === 'success' ? 'text-green-400' : 'text-yellow-400'
+                    }`} />
                   </div>
-                  <CheckCircle className="w-5 h-5 text-green-400" />
-                </div>
-              ))
+                );
+              })
             ) : (
               <div className="text-center py-8">
                 <Activity className="w-12 h-12 text-slate-600 mx-auto mb-3" />
