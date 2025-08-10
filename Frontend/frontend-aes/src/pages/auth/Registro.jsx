@@ -73,14 +73,7 @@ export default function Registro({ onBackToLogin }) {
 
   if (resp) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-gray-900 via-blue-900 to-gray-900 flex items-center justify-center p-6">
-        {/* Background Effects */}
-        <div className="absolute inset-0">
-          <div className="absolute inset-0 bg-[radial-gradient(circle_at_20%_80%,rgba(120,119,198,0.3),transparent_50%)]"></div>
-          <div className="absolute inset-0 bg-[radial-gradient(circle_at_80%_20%,rgba(56,189,248,0.3),transparent_50%)]"></div>
-          <div className="absolute inset-0 bg-[radial-gradient(circle_at_40%_40%,rgba(16,185,129,0.2),transparent_50%)]"></div>
-        </div>
-
+      <div className="min-h-screen bg-gradient-to-br  flex items-center justify-center p-">
         <div className="w-full max-w-md relative">
           <div className="bg-slate-800/30 backdrop-blur-sm border border-slate-700/50 rounded-2xl p-8 shadow-xl">
             <div className="text-center">
@@ -137,12 +130,7 @@ export default function Registro({ onBackToLogin }) {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-900 via-blue-900 to-gray-900 flex items-center justify-center p-6">
-      {/* Background Effects */}
-      <div className="absolute inset-0">
-        <div className="absolute inset-0 bg-[radial-gradient(circle_at_20%_80%,rgba(120,119,198,0.3),transparent_50%)]"></div>
-        <div className="absolute inset-0 bg-[radial-gradient(circle_at_80%_20%,rgba(56,189,248,0.3),transparent_50%)]"></div>
-        <div className="absolute inset-0 bg-[radial-gradient(circle_at_40%_40%,rgba(16,185,129,0.2),transparent_50%)]"></div>
-      </div>
+     
 
       <div className="w-full max-w-md relative">
         {/* Header */}

@@ -141,7 +141,7 @@ El frontend estará disponible en: `http://localhost:5173`
 El sistema crea automáticamente un usuario administrador:
 - **Usuario**: `admin`
 - **Contraseña**: `admin123`
-- **Email**: `admin@securevault.local`
+- **Email**: `admin@securevault.com`
 
 ### Funcionalidades Principales
 
@@ -262,16 +262,6 @@ El sistema soporta dos tipos de almacenamiento:
 3. Commit de cambios (`git commit -am 'Agregar nueva funcionalidad'`)
 4. Push a la rama (`git push origin feature/nueva-funcionalidad`)
 5. Crear Pull Request
-
-## 📄 Licencia
-
-Este proyecto está bajo la Licencia MIT. Ver `LICENSE` para más detalles.
-
-## 📞 Soporte
-
-Para soporte técnico o reportar bugs:
-- Crear un [Issue](https://github.com/YormanOna/ProjectSeguridad_CifradoAES/issues)
-- Email: soporte@securevault.local
 
 ## 🙏 Agradecimientos
 
