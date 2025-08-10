@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import api from "../../api/config";
 import { getCurrentUser } from "../../utils/auth";
+import ExportButton from "../../components/ExportButton";
 import { 
   Shield, 
   Activity, 
@@ -183,6 +184,20 @@ export default function AuditoriaListado() {
     );
   }
 
+  // Función para preparar datos de exportación
+  const prepararDatosExportacion = () => {
+    return filteredItems.map(item => ({
+      'ID': item.id,
+      'Fecha y Hora': new Date(item.creado_en).toLocaleString(),
+      'Acción': item.accion,
+      'Usuario': item.usuario || 'Sistema',
+      'Recurso': item.recurso || 'N/A',
+      'Estado': item.estado,
+      'IP': item.direccion_ip || 'N/A',
+      'Detalles': item.detalles || 'N/A'
+    }));
+  };
+
   return (
     <div className="space-y-8">
       {/* Header */}
@@ -331,10 +346,13 @@ export default function AuditoriaListado() {
               Registro de Auditoría ({filteredItems.length} eventos)
             </h2>
             <div className="flex items-center space-x-2">
-              <button className="flex items-center space-x-2 px-3 py-1.5 bg-slate-700/50 border border-slate-600/50 rounded-lg text-slate-300 hover:text-white transition-colors duration-200">
-                <Download className="w-4 h-4" />
-                <span className="text-sm">Exportar</span>
-              </button>
+              <ExportButton
+                data={prepararDatosExportacion()}
+                filename={`auditoria-${new Date().toISOString().split('T')[0]}`}
+                title="Exportar"
+                variant="secondary"
+                className="text-sm px-3 py-1.5"
+              />
               <button className="flex items-center space-x-2 px-3 py-1.5 bg-slate-700/50 border border-slate-600/50 rounded-lg text-slate-300 hover:text-white transition-colors duration-200">
                 <Settings className="w-4 h-4" />
                 <span className="text-sm">Configurar</span>

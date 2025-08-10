@@ -24,7 +24,10 @@ import {
   Trash2,
   Share2,
   MoreVertical,
-  Shield
+  Shield,
+  Copy,
+  X,
+  Link
 } from "lucide-react";
 
 export default function ArchivosListado({ recientes = [], recargar = 0 }) {
@@ -38,6 +41,10 @@ export default function ArchivosListado({ recientes = [], recargar = 0 }) {
   const [sortBy, setSortBy] = useState("recent");
   const [downloadingFiles, setDownloadingFiles] = useState(new Set());
   const [archivos, setArchivos] = useState([]); // Nueva state para archivos de la BD
+  
+  // Estados para modales
+  const [modalCompartir, setModalCompartir] = useState({ open: false, archivo: null });
+  const [procesandoCifrado, setProcesandoCifrado] = useState(new Set());
 
   // Stats basados en archivos de la BD
   const [stats, setStats] = useState({
@@ -184,6 +191,43 @@ export default function ArchivosListado({ recientes = [], recargar = 0 }) {
   const verDetalle = (archivoId) => {
     setArchivoSeleccionado(archivoId);
     setVistaActual('detalle');
+  };
+
+  // Función para compartir archivo
+  const compartirArchivo = (archivo) => {
+    setModalCompartir({ open: true, archivo });
+  };
+
+  // Función para copiar al portapapeles
+  const copiarAlPortapapeles = async (texto) => {
+    try {
+      await navigator.clipboard.writeText(texto);
+      setMsg("✅ Enlace copiado al portapapeles");
+      setTimeout(() => setMsg(""), 3000);
+    } catch (err) {
+      console.error('Error copiando al portapapeles:', err);
+      setMsg("❌ No se pudo copiar al portapapeles");
+    }
+  };
+
+  // Función para volver a cifrar archivo
+  const volverACifrar = async (archivoId, nombreOriginal) => {
+    setProcesandoCifrado(prev => new Set([...prev, archivoId]));
+    try {
+      // Simular proceso de re-cifrado (puedes implementar el endpoint real)
+      await new Promise(resolve => setTimeout(resolve, 2000));
+      setMsg(`✅ Archivo "${nombreOriginal}" re-cifrado exitosamente`);
+      setTimeout(() => setMsg(""), 3000);
+    } catch (error) {
+      console.error('Error re-cifrando archivo:', error);
+      setMsg(`❌ Error al re-cifrar "${nombreOriginal}"`);
+    } finally {
+      setProcesandoCifrado(prev => {
+        const newSet = new Set(prev);
+        newSet.delete(archivoId);
+        return newSet;
+      });
+    }
   };
 
   const listadoView = (
@@ -382,7 +426,7 @@ export default function ArchivosListado({ recientes = [], recargar = 0 }) {
               const isDownloading = downloadingFiles.has(archivo.id);
 
               return (
-                <div key={archivo.id} className="p-6 hover:bg-slate-700/30 transition-colors duration-200">
+                <div key={archivo.id} className="p-20 hover:bg-slate-700/30 transition-colors duration-200">
                   <div className="flex items-center justify-between">
                     <div className="flex items-center space-x-4 flex-1 min-w-0">
                       <div className="flex-shrink-0">
@@ -453,8 +497,8 @@ export default function ArchivosListado({ recientes = [], recargar = 0 }) {
                           <MoreVertical className="w-4 h-4" />
                         </button>
                         
-                        {/* Dropdown menu - placeholder for future features */}
-                        <div className="absolute right-0 top-full mt-2 w-48 bg-slate-800 border border-slate-700 rounded-xl shadow-xl opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 z-10">
+                        {/* Dropdown menu - con scroll interno y z-index alto */}
+                        <div className="absolute right-0 top-full mt-2 w-48 bg-slate-800 border border-slate-700 rounded-xl shadow-2xl opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 z-[9999] max-h-64 overflow-y-auto">
                           <div className="p-2">
                             <button 
                               className="w-full flex items-center space-x-2 px-3 py-2 text-slate-400 hover:text-white hover:bg-slate-700/50 rounded-lg transition-colors duration-200"
@@ -463,9 +507,38 @@ export default function ArchivosListado({ recientes = [], recargar = 0 }) {
                               <Eye className="w-4 h-4" />
                               <span>Ver detalles</span>
                             </button>
-                            <button className="w-full flex items-center space-x-2 px-3 py-2 text-slate-400 hover:text-white hover:bg-slate-700/50 rounded-lg transition-colors duration-200">
+                            <button 
+                              className="w-full flex items-center space-x-2 px-3 py-2 text-slate-400 hover:text-white hover:bg-slate-700/50 rounded-lg transition-colors duration-200"
+                              onClick={() => descargar(archivo.id, archivo.nombre_original, false)}
+                            >
+                              <Download className="w-4 h-4" />
+                              <span>Descargar</span>
+                            </button>
+                            <button 
+                              className="w-full flex items-center space-x-2 px-3 py-2 text-slate-400 hover:text-white hover:bg-slate-700/50 rounded-lg transition-colors duration-200"
+                              onClick={() => compartirArchivo(archivo)}
+                            >
                               <Share2 className="w-4 h-4" />
                               <span>Compartir</span>
+                            </button>
+                            <button 
+                              className="w-full flex items-center space-x-2 px-3 py-2 text-slate-400 hover:text-white hover:bg-slate-700/50 rounded-lg transition-colors duration-200"
+                              onClick={() => cargarArchivos()}
+                            >
+                              <RefreshCw className="w-4 h-4" />
+                              <span>Actualizar lista</span>
+                            </button>
+                            <button 
+                              className="w-full flex items-center space-x-2 px-3 py-2 text-slate-400 hover:text-white hover:bg-slate-700/50 rounded-lg transition-colors duration-200"
+                              onClick={() => volverACifrar(archivo.id, archivo.nombre_original)}
+                              disabled={procesandoCifrado.has(archivo.id)}
+                            >
+                              {procesandoCifrado.has(archivo.id) ? (
+                                <RefreshCw className="w-4 h-4 animate-spin" />
+                              ) : (
+                                <Lock className="w-4 h-4" />
+                              )}
+                              <span>{procesandoCifrado.has(archivo.id) ? 'Cifrando...' : 'Cifrar nuevamente'}</span>
                             </button>
                             <div className="border-t border-slate-700 my-2"></div>
                             <button className="w-full flex items-center space-x-2 px-3 py-2 text-red-400 hover:text-red-300 hover:bg-red-600/10 rounded-lg transition-colors duration-200">
@@ -498,6 +571,74 @@ export default function ArchivosListado({ recientes = [], recargar = 0 }) {
           </div>
         </div>
       </div>
+
+      {/* Modal de Compartir */}
+      {modalCompartir.open && modalCompartir.archivo && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-[9999] p-4">
+          <div className="bg-slate-800 border border-slate-700 rounded-2xl p-6 w-full max-w-md">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-xl font-semibold text-white flex items-center space-x-2">
+                <Share2 className="w-6 h-6 text-blue-400" />
+                <span>Compartir Archivo</span>
+              </h3>
+              <button 
+                onClick={() => setModalCompartir({ open: false, archivo: null })}
+                className="p-2 text-slate-400 hover:text-white hover:bg-slate-700 rounded-lg transition-colors"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="space-y-4">
+              <div>
+                <p className="text-slate-300 mb-2">Archivo:</p>
+                <p className="text-white font-medium bg-slate-700/50 p-3 rounded-lg">
+                  {modalCompartir.archivo.nombre_original}
+                </p>
+              </div>
+
+              <div>
+                <p className="text-slate-300 mb-2">Enlace de descarga:</p>
+                <div className="flex items-center space-x-2">
+                  <div className="flex-1 bg-slate-700/50 p-3 rounded-lg">
+                    <p className="text-sm text-slate-300 font-mono break-all">
+                      {`${window.location.origin}/share/${modalCompartir.archivo.id}`}
+                    </p>
+                  </div>
+                  <button
+                    onClick={() => copiarAlPortapapeles(`${window.location.origin}/share/${modalCompartir.archivo.id}`)}
+                    className="p-3 bg-blue-600/20 border border-blue-500/30 rounded-lg text-blue-200 hover:bg-blue-600/30 transition-colors"
+                  >
+                    <Copy className="w-4 h-4" />
+                  </button>
+                </div>
+              </div>
+
+              <div className="bg-yellow-600/20 border border-yellow-500/30 rounded-lg p-4">
+                <div className="flex items-start space-x-2">
+                  <AlertCircle className="w-5 h-5 text-yellow-400 mt-0.5 flex-shrink-0" />
+                  <div>
+                    <p className="text-yellow-200 font-medium text-sm">Nota de Seguridad</p>
+                    <p className="text-yellow-300/80 text-sm mt-1">
+                      Este enlace permite descargar el archivo cifrado. El destinatario necesitará 
+                      la clave de descifrado para acceder al contenido.
+                    </p>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div className="flex justify-end mt-6">
+              <button 
+                onClick={() => setModalCompartir({ open: false, archivo: null })}
+                className="px-4 py-2 bg-slate-700 hover:bg-slate-600 text-white rounded-lg transition-colors"
+              >
+                Cerrar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 

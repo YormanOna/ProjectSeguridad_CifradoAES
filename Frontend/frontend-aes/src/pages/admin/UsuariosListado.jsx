@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import api from "../../api/config";
+import ExportButton from "../../components/ExportButton";
 import { 
   Users, 
   Search, 
@@ -22,7 +23,9 @@ import {
   Mail,
   Phone,
   MapPin,
-  RefreshCw
+  RefreshCw,
+  X,
+  User
 } from "lucide-react";
 
 export default function UsuariosListado() {
@@ -47,6 +50,17 @@ export default function UsuariosListado() {
 
   const [vistaDetalle, setVistaDetalle] = useState(null);
   const [actualizandoEstado, setActualizandoEstado] = useState(null);
+  const [modalCrearUsuario, setModalCrearUsuario] = useState(false);
+  const [modalEditarUsuario, setModalEditarUsuario] = useState(false);
+  const [usuarioEditando, setUsuarioEditando] = useState(null);
+  const [nuevoUsuario, setNuevoUsuario] = useState({
+    nombre_usuario: '',
+    correo: '',
+    contrasena: '',
+    rol: 'USER'
+  });
+  const [creandoUsuario, setCreandoUsuario] = useState(false);
+  const [editandoUsuario, setEditandoUsuario] = useState(false);
 
   useEffect(() => {
     cargarDatos();
@@ -104,6 +118,137 @@ export default function UsuariosListado() {
     }
   };
 
+  // Función para crear usuario
+  const crearUsuario = async (e) => {
+    e.preventDefault();
+    setCreandoUsuario(true);
+    
+    try {
+      const response = await api.post('/admin/usuarios', nuevoUsuario);
+      
+      // Limpiar formulario y cerrar modal
+      setNuevoUsuario({
+        nombre_usuario: '',
+        correo: '',
+        contrasena: '',
+        rol: 'USER'
+      });
+      setModalCrearUsuario(false);
+      
+      // Recargar datos
+      await cargarDatos();
+      
+      alert('Usuario creado exitosamente');
+    } catch (error) {
+      console.error('Error creando usuario:', error);
+      alert('Error al crear usuario: ' + (error.response?.data?.error || error.message));
+    } finally {
+      setCreandoUsuario(false);
+    }
+  };
+
+  // Función para abrir modal de editar usuario
+  const abrirModalEditar = (usuario) => {
+    setUsuarioEditando({
+      id: usuario.id,
+      nombre_usuario: usuario.nombre_usuario,
+      correo: usuario.correo,
+      rol: usuario.rol?.toLowerCase() || 'user'
+    });
+    setModalEditarUsuario(true);
+  };
+
+  // Función para actualizar usuario
+  const actualizarUsuario = async (e) => {
+    e.preventDefault();
+    setEditandoUsuario(true);
+    
+    try {
+      const response = await api.put(`/admin/usuarios/${usuarioEditando.id}`, {
+        nombre_usuario: usuarioEditando.nombre_usuario,
+        correo: usuarioEditando.correo,
+        rol: usuarioEditando.rol
+      });
+      
+      // Cerrar modal y limpiar estado
+      setModalEditarUsuario(false);
+      setUsuarioEditando(null);
+      
+      // Recargar datos
+      await cargarDatos();
+      
+      alert('Usuario actualizado exitosamente');
+    } catch (error) {
+      console.error('Error actualizando usuario:', error);
+      alert('Error al actualizar usuario: ' + (error.response?.data?.error || error.message));
+    } finally {
+      setEditandoUsuario(false);
+    }
+  };
+
+  // Función para cambiar rol desde el modal de detalles
+  const cambiarRol = async (usuarioId, nuevoRol) => {
+    if (!confirm(`¿Estás seguro de cambiar el rol a ${nuevoRol}?`)) {
+      return;
+    }
+    
+    try {
+      setActualizandoEstado(usuarioId);
+      await api.put(`/admin/usuarios/${usuarioId}`, { rol: nuevoRol });
+      
+      // Actualizar estado local
+      setUsuarios(usuarios.map(usuario => 
+        usuario.id === usuarioId ? { ...usuario, rol: nuevoRol } : usuario
+      ));
+      
+      // Actualizar vista de detalle si está abierta
+      if (vistaDetalle && vistaDetalle.id === usuarioId) {
+        setVistaDetalle({ ...vistaDetalle, rol: nuevoRol });
+      }
+      
+      // Recargar datos para mantener consistencia
+      await cargarDatos();
+      
+    } catch (error) {
+      console.error('Error cambiando rol:', error);
+      alert('Error al cambiar el rol del usuario: ' + (error.response?.data?.error || error.message));
+    } finally {
+      setActualizandoEstado(null);
+    }
+  };
+
+  // Función para cambiar estado desde el modal de detalles
+  const cambiarEstadoDesdeModal = async (usuarioId, nuevoEstado) => {
+    const accion = nuevoEstado === 'ACTIVO' ? 'activar' : 'suspender';
+    if (!confirm(`¿Estás seguro de ${accion} esta cuenta?`)) {
+      return;
+    }
+    
+    try {
+      setActualizandoEstado(usuarioId);
+      await api.patch(`/admin/usuarios/${usuarioId}/estado`, { estado: nuevoEstado });
+      
+      // Actualizar estado local
+      setUsuarios(usuarios.map(usuario => 
+        usuario.id === usuarioId ? { ...usuario, estado: nuevoEstado } : usuario
+      ));
+      
+      // Actualizar vista de detalle si está abierta
+      if (vistaDetalle && vistaDetalle.id === usuarioId) {
+        setVistaDetalle({ ...vistaDetalle, estado: nuevoEstado });
+      }
+      
+      // Recargar datos para mantener consistencia
+      await cargarDatos();
+      
+    } catch (error) {
+      console.error('Error cambiando estado:', error);
+      alert('Error al cambiar el estado del usuario: ' + (error.response?.data?.error || error.message));
+    } finally {
+      setActualizandoEstado(null);
+    }
+  };
+
   // Filtrar usuarios
   const usuariosFiltrados = usuarios.filter(usuario => {
     const nombre = usuario.nombre_usuario || usuario.nombre || '';
@@ -132,6 +277,22 @@ export default function UsuariosListado() {
       case 'INACTIVO': return 'text-yellow-400 bg-yellow-500/10 border-yellow-500/20';
       default: return 'text-slate-400 bg-slate-500/10 border-slate-500/20';
     }
+  };
+
+  // Función para preparar datos de exportación
+  const prepararDatosExportacion = () => {
+    return usuariosFiltrados.map(usuario => ({
+      'ID': usuario.id,
+      'Nombre de Usuario': usuario.nombre_usuario,
+      'Correo': usuario.correo,
+      'Rol': usuario.rol,
+      'Estado': usuario.estado,
+      'Archivos Subidos': usuario.archivosSubidos || 0,
+      'Espacio Usado': usuario.espacioUsado || 'N/A',
+      'Sesiones Activas': usuario.sesionesActivas || 0,
+      'Fecha de Registro': usuario.fechaRegistro ? new Date(usuario.fechaRegistro).toLocaleDateString() : 'N/A',
+      'Último Acceso': usuario.ultimoAcceso ? new Date(usuario.ultimoAcceso).toLocaleString() : 'N/A'
+    }));
   };
 
   const getEstadoIcon = (estado) => {
@@ -189,15 +350,21 @@ export default function UsuariosListado() {
                 <span>Actualizar</span>
               </button>
 
-              <button className="flex items-center space-x-2 px-4 py-2 bg-blue-600/20 border border-blue-500/30 rounded-xl text-blue-200 hover:bg-blue-600/30 transition-colors duration-200">
+              <button
+                onClick={() => setModalCrearUsuario(true)}
+                className="flex items-center space-x-2 px-4 py-2 bg-blue-600/20 border border-blue-500/30 rounded-xl text-blue-200 hover:bg-blue-600/30 transition-colors duration-200"
+              >
                 <UserPlus className="w-5 h-5" />
                 <span>Nuevo Usuario</span>
               </button>
               
-              <button className="flex items-center space-x-2 px-4 py-2 bg-green-600/20 border border-green-500/30 rounded-xl text-green-200 hover:bg-green-600/30 transition-colors duration-200">
-                <Download className="w-5 h-5" />
-                <span>Exportar</span>
-              </button>
+              <ExportButton
+                data={prepararDatosExportacion()}
+                filename={`usuarios-${new Date().toISOString().split('T')[0]}`}
+                title="Exportar"
+                variant="success"
+                className="bg-green-600/20 border border-green-500/30 text-green-200 hover:bg-green-600/30"
+              />
             </div>
           </div>
 
@@ -382,7 +549,10 @@ export default function UsuariosListado() {
                             <span>Ver detalles</span>
                           </button>
                           
-                          <button className="w-full flex items-center space-x-2 px-3 py-2 text-slate-400 hover:text-white hover:bg-slate-700/50 rounded-lg transition-colors duration-200">
+                          <button 
+                            onClick={() => abrirModalEditar(usuario)}
+                            className="w-full flex items-center space-x-2 px-3 py-2 text-slate-400 hover:text-white hover:bg-slate-700/50 rounded-lg transition-colors duration-200"
+                          >
                             <Edit className="w-4 h-4" />
                             <span>Editar</span>
                           </button>
@@ -460,20 +630,12 @@ export default function UsuariosListado() {
                   <label className="block text-slate-400 text-sm font-medium mb-2">Información Personal</label>
                   <div className="bg-slate-700/30 rounded-xl p-4 space-y-3">
                     <div className="flex justify-between">
-                      <span className="text-slate-400">Nombre:</span>
-                      <span className="text-white">{vistaDetalle.nombre}</span>
+                      <span className="text-slate-400">Nombre de Usuario:</span>
+                      <span className="text-white">{vistaDetalle.nombre_usuario}</span>
                     </div>
                     <div className="flex justify-between">
                       <span className="text-slate-400">Email:</span>
-                      <span className="text-white">{vistaDetalle.email}</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-slate-400">Teléfono:</span>
-                      <span className="text-white">{vistaDetalle.telefono}</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-slate-400">Ubicación:</span>
-                      <span className="text-white">{vistaDetalle.ubicacion}</span>
+                      <span className="text-white">{vistaDetalle.correo}</span>
                     </div>
                   </div>
                 </div>
@@ -483,15 +645,15 @@ export default function UsuariosListado() {
                   <div className="bg-slate-700/30 rounded-xl p-4 space-y-3">
                     <div className="flex justify-between">
                       <span className="text-slate-400">Archivos:</span>
-                      <span className="text-white">{vistaDetalle.archivosSubidos}</span>
+                      <span className="text-white">{vistaDetalle.archivosSubidos || 0}</span>
                     </div>
                     <div className="flex justify-between">
                       <span className="text-slate-400">Espacio usado:</span>
-                      <span className="text-white">{vistaDetalle.espacioUsado}</span>
+                      <span className="text-white">{vistaDetalle.espacioUsado || 'N/A'}</span>
                     </div>
                     <div className="flex justify-between">
                       <span className="text-slate-400">Sesiones activas:</span>
-                      <span className="text-white">{vistaDetalle.sesionesActivas}</span>
+                      <span className="text-white">{vistaDetalle.sesionesActivas || 0}</span>
                     </div>
                   </div>
                 </div>
@@ -516,31 +678,348 @@ export default function UsuariosListado() {
                     <div className="flex justify-between">
                       <span className="text-slate-400">Registro:</span>
                       <span className="text-white">
-                        {new Date(vistaDetalle.fechaRegistro).toLocaleDateString()}
+                        {vistaDetalle.fechaRegistro ? new Date(vistaDetalle.fechaRegistro).toLocaleDateString() : 'N/A'}
                       </span>
                     </div>
                     <div className="flex justify-between">
                       <span className="text-slate-400">Último acceso:</span>
                       <span className="text-white">
-                        {new Date(vistaDetalle.ultimoAcceso).toLocaleString()}
+                        {vistaDetalle.ultimoAcceso ? new Date(vistaDetalle.ultimoAcceso).toLocaleString() : 'N/A'}
                       </span>
                     </div>
                   </div>
                 </div>
 
                 <div className="space-y-2">
-                  <button className="w-full px-4 py-3 bg-blue-600/20 border border-blue-500/30 rounded-xl text-blue-200 hover:bg-blue-600/30 transition-colors duration-200">
+                  <button 
+                    onClick={() => {
+                      setVistaDetalle(null);
+                      abrirModalEditar(vistaDetalle);
+                    }}
+                    className="w-full px-4 py-3 bg-blue-600/20 border border-blue-500/30 rounded-xl text-blue-200 hover:bg-blue-600/30 transition-colors duration-200"
+                  >
                     Editar Usuario
                   </button>
-                  <button className="w-full px-4 py-3 bg-yellow-600/20 border border-yellow-500/30 rounded-xl text-yellow-200 hover:bg-yellow-600/30 transition-colors duration-200">
-                    Cambiar Rol
+                  <button 
+                    onClick={() => {
+                      const nuevoRol = vistaDetalle.rol === 'ADMIN' ? 'USER' : 'ADMIN';
+                      cambiarRol(vistaDetalle.id, nuevoRol);
+                    }}
+                    disabled={actualizandoEstado === vistaDetalle.id}
+                    className="w-full px-4 py-3 bg-yellow-600/20 border border-yellow-500/30 rounded-xl text-yellow-200 hover:bg-yellow-600/30 transition-colors duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    {actualizandoEstado === vistaDetalle.id ? 'Cambiando...' : 
+                     vistaDetalle.rol === 'ADMIN' ? 'Cambiar a Usuario' : 'Cambiar a Admin'}
                   </button>
-                  <button className="w-full px-4 py-3 bg-red-600/20 border border-red-500/30 rounded-xl text-red-200 hover:bg-red-600/30 transition-colors duration-200">
-                    Suspender Cuenta
+                  <button 
+                    onClick={() => {
+                      const nuevoEstado = vistaDetalle.estado === 'ACTIVO' ? 'SUSPENDIDO' : 'ACTIVO';
+                      cambiarEstadoDesdeModal(vistaDetalle.id, nuevoEstado);
+                    }}
+                    disabled={actualizandoEstado === vistaDetalle.id}
+                    className={`w-full px-4 py-3 rounded-xl transition-colors duration-200 disabled:opacity-50 disabled:cursor-not-allowed ${
+                      vistaDetalle.estado === 'ACTIVO' 
+                        ? 'bg-red-600/20 border border-red-500/30 text-red-200 hover:bg-red-600/30'
+                        : 'bg-green-600/20 border border-green-500/30 text-green-200 hover:bg-green-600/30'
+                    }`}
+                  >
+                    {actualizandoEstado === vistaDetalle.id ? 'Procesando...' : 
+                     vistaDetalle.estado === 'ACTIVO' ? 'Suspender Cuenta' : 'Activar Cuenta'}
                   </button>
                 </div>
               </div>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal de Crear Usuario */}
+      {modalCrearUsuario && (
+        <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-[10000] p-4">
+          <div className="bg-slate-800 border border-slate-700/50 rounded-2xl shadow-xl max-w-md w-full max-h-[90vh] overflow-y-auto">
+            <div className="flex items-center justify-between p-6 border-b border-slate-700/50">
+              <div className="flex items-center space-x-3">
+                <div className="bg-blue-500/20 rounded-xl p-2">
+                  <UserPlus className="w-6 h-6 text-blue-400" />
+                </div>
+                <div>
+                  <h3 className="text-lg font-semibold text-white">Crear Nuevo Usuario</h3>
+                  <p className="text-sm text-slate-400">Complete la información del usuario</p>
+                </div>
+              </div>
+              <button
+                onClick={() => {
+                  setModalCrearUsuario(false);
+                  setNuevoUsuario({
+                    nombre_usuario: '',
+                    correo: '',
+                    contrasena: '',
+                    rol: 'usuario'
+                  });
+                }}
+                className="text-slate-400 hover:text-white p-2 transition-colors"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <form onSubmit={(e) => { e.preventDefault(); crearUsuario(); }} className="p-6 space-y-4">
+              {/* Nombre de Usuario */}
+              <div>
+                <label className="block text-sm font-medium text-slate-300 mb-2">
+                  <div className="flex items-center space-x-2">
+                    <User className="w-4 h-4 text-blue-400" />
+                    <span>Nombre de Usuario</span>
+                  </div>
+                </label>
+                <input
+                  type="text"
+                  required
+                  value={nuevoUsuario.nombre_usuario}
+                  onChange={(e) => setNuevoUsuario({
+                    ...nuevoUsuario,
+                    nombre_usuario: e.target.value
+                  })}
+                  className="w-full px-3 py-3 bg-slate-700/50 border border-slate-600/50 rounded-xl text-white placeholder-slate-400 focus:outline-none focus:border-blue-500/50 focus:ring-1 focus:ring-blue-500/50"
+                  placeholder="Ingrese el nombre de usuario"
+                />
+              </div>
+
+              {/* Correo Electrónico */}
+              <div>
+                <label className="block text-sm font-medium text-slate-300 mb-2">
+                  <div className="flex items-center space-x-2">
+                    <Mail className="w-4 h-4 text-blue-400" />
+                    <span>Correo Electrónico</span>
+                  </div>
+                </label>
+                <input
+                  type="email"
+                  required
+                  value={nuevoUsuario.correo}
+                  onChange={(e) => setNuevoUsuario({
+                    ...nuevoUsuario,
+                    correo: e.target.value
+                  })}
+                  className="w-full px-3 py-3 bg-slate-700/50 border border-slate-600/50 rounded-xl text-white placeholder-slate-400 focus:outline-none focus:border-blue-500/50 focus:ring-1 focus:ring-blue-500/50"
+                  placeholder="Ingrese el correo electrónico"
+                />
+              </div>
+
+              {/* Contraseña */}
+              <div>
+                <label className="block text-sm font-medium text-slate-300 mb-2">
+                  <div className="flex items-center space-x-2">
+                    <Lock className="w-4 h-4 text-blue-400" />
+                    <span>Contraseña</span>
+                  </div>
+                </label>
+                <input
+                  type="password"
+                  required
+                  value={nuevoUsuario.contrasena}
+                  onChange={(e) => setNuevoUsuario({
+                    ...nuevoUsuario,
+                    contrasena: e.target.value
+                  })}
+                  className="w-full px-3 py-3 bg-slate-700/50 border border-slate-600/50 rounded-xl text-white placeholder-slate-400 focus:outline-none focus:border-blue-500/50 focus:ring-1 focus:ring-blue-500/50"
+                  placeholder="Ingrese la contraseña"
+                  minLength={8}
+                />
+                <p className="text-xs text-slate-400 mt-1">
+                  La contraseña debe tener al menos 8 caracteres
+                </p>
+              </div>
+
+              {/* Rol */}
+              <div>
+                <label className="block text-sm font-medium text-slate-300 mb-2">
+                  <div className="flex items-center space-x-2">
+                    <Shield className="w-4 h-4 text-blue-400" />
+                    <span>Rol</span>
+                  </div>
+                </label>
+                <select
+                  value={nuevoUsuario.rol}
+                  onChange={(e) => setNuevoUsuario({
+                    ...nuevoUsuario,
+                    rol: e.target.value
+                  })}
+                  className="w-full px-3 py-3 bg-slate-700/50 border border-slate-600/50 rounded-xl text-white focus:outline-none focus:border-blue-500/50 focus:ring-1 focus:ring-blue-500/50"
+                >
+                  <option value="usuario">Usuario</option>
+                  <option value="admin">Administrador</option>
+                </select>
+                <p className="text-xs text-slate-400 mt-1">
+                  Los administradores tienen acceso completo al sistema
+                </p>
+              </div>
+
+              {/* Botones */}
+              <div className="flex space-x-3 pt-4">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setModalCrearUsuario(false);
+                    setNuevoUsuario({
+                      nombre_usuario: '',
+                      correo: '',
+                      contrasena: '',
+                      rol: 'usuario'
+                    });
+                  }}
+                  className="flex-1 px-4 py-3 bg-slate-700/50 border border-slate-600/50 text-slate-300 rounded-xl hover:bg-slate-600/50 transition-colors"
+                  disabled={creandoUsuario}
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="submit"
+                  disabled={creandoUsuario}
+                  className="flex-1 bg-blue-600 hover:bg-blue-700 text-white px-4 py-3 rounded-xl flex items-center justify-center space-x-2 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {creandoUsuario ? (
+                    <>
+                      <RefreshCw className="w-4 h-4 animate-spin" />
+                      <span>Creando...</span>
+                    </>
+                  ) : (
+                    <>
+                      <UserPlus className="w-4 h-4" />
+                      <span>Crear Usuario</span>
+                    </>
+                  )}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Modal de Editar Usuario */}
+      {modalEditarUsuario && usuarioEditando && (
+        <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-[10000] p-4">
+          <div className="bg-slate-800 border border-slate-700/50 rounded-2xl shadow-xl max-w-md w-full max-h-[90vh] overflow-y-auto">
+            <div className="flex items-center justify-between p-6 border-b border-slate-700/50">
+              <div className="flex items-center space-x-3">
+                <div className="bg-blue-500/20 rounded-xl p-2">
+                  <Edit className="w-6 h-6 text-blue-400" />
+                </div>
+                <div>
+                  <h3 className="text-lg font-semibold text-white">Editar Usuario</h3>
+                  <p className="text-sm text-slate-400">Modificar información del usuario</p>
+                </div>
+              </div>
+              <button
+                onClick={() => {
+                  setModalEditarUsuario(false);
+                  setUsuarioEditando(null);
+                }}
+                className="text-slate-400 hover:text-white p-2 transition-colors"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <form onSubmit={actualizarUsuario} className="p-6 space-y-4">
+              {/* Nombre de Usuario */}
+              <div>
+                <label className="block text-sm font-medium text-slate-300 mb-2">
+                  <div className="flex items-center space-x-2">
+                    <User className="w-4 h-4 text-blue-400" />
+                    <span>Nombre de Usuario</span>
+                  </div>
+                </label>
+                <input
+                  type="text"
+                  required
+                  value={usuarioEditando.nombre_usuario}
+                  onChange={(e) => setUsuarioEditando({
+                    ...usuarioEditando,
+                    nombre_usuario: e.target.value
+                  })}
+                  className="w-full px-3 py-3 bg-slate-700/50 border border-slate-600/50 rounded-xl text-white placeholder-slate-400 focus:outline-none focus:border-blue-500/50 focus:ring-1 focus:ring-blue-500/50"
+                  placeholder="Ingrese el nombre de usuario"
+                />
+              </div>
+
+              {/* Correo Electrónico */}
+              <div>
+                <label className="block text-sm font-medium text-slate-300 mb-2">
+                  <div className="flex items-center space-x-2">
+                    <Mail className="w-4 h-4 text-blue-400" />
+                    <span>Correo Electrónico</span>
+                  </div>
+                </label>
+                <input
+                  type="email"
+                  required
+                  value={usuarioEditando.correo}
+                  onChange={(e) => setUsuarioEditando({
+                    ...usuarioEditando,
+                    correo: e.target.value
+                  })}
+                  className="w-full px-3 py-3 bg-slate-700/50 border border-slate-600/50 rounded-xl text-white placeholder-slate-400 focus:outline-none focus:border-blue-500/50 focus:ring-1 focus:ring-blue-500/50"
+                  placeholder="Ingrese el correo electrónico"
+                />
+              </div>
+
+              {/* Rol */}
+              <div>
+                <label className="block text-sm font-medium text-slate-300 mb-2">
+                  <div className="flex items-center space-x-2">
+                    <Shield className="w-4 h-4 text-blue-400" />
+                    <span>Rol</span>
+                  </div>
+                </label>
+                <select
+                  value={usuarioEditando.rol}
+                  onChange={(e) => setUsuarioEditando({
+                    ...usuarioEditando,
+                    rol: e.target.value
+                  })}
+                  className="w-full px-3 py-3 bg-slate-700/50 border border-slate-600/50 rounded-xl text-white focus:outline-none focus:border-blue-500/50 focus:ring-1 focus:ring-blue-500/50"
+                >
+                  <option value="user">Usuario</option>
+                  <option value="admin">Administrador</option>
+                </select>
+                <p className="text-xs text-slate-400 mt-1">
+                  Los administradores tienen acceso completo al sistema
+                </p>
+              </div>
+
+              {/* Botones */}
+              <div className="flex space-x-3 pt-4">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setModalEditarUsuario(false);
+                    setUsuarioEditando(null);
+                  }}
+                  className="flex-1 px-4 py-3 bg-slate-700/50 border border-slate-600/50 text-slate-300 rounded-xl hover:bg-slate-600/50 transition-colors"
+                  disabled={editandoUsuario}
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="submit"
+                  disabled={editandoUsuario}
+                  className="flex-1 bg-blue-600 hover:bg-blue-700 text-white px-4 py-3 rounded-xl flex items-center justify-center space-x-2 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {editandoUsuario ? (
+                    <>
+                      <RefreshCw className="w-4 h-4 animate-spin" />
+                      <span>Actualizando...</span>
+                    </>
+                  ) : (
+                    <>
+                      <Edit className="w-4 h-4" />
+                      <span>Actualizar Usuario</span>
+                    </>
+                  )}
+                </button>
+              </div>
+            </form>
           </div>
         </div>
       )}

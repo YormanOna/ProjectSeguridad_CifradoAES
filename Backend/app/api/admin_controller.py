@@ -158,23 +158,38 @@ def obtener_usuario_detalle(usuario_id):
         usuario = Usuario.query.get_or_404(usuario_id)
         user_data = usuario_schema.dump(usuario)
         
-        # Enriquecer con datos adicionales
-        archivos_subidos = Archivo.query.filter_by(usuario_id=usuario.id).count()
-        espacio_usado_bytes = db.session.query(func.sum(Archivo.tamano_bytes)).filter_by(usuario_id=usuario.id).scalar() or 0
+        # Obtener roles del usuario de forma segura
+        roles_usuario = []
+        try:
+            roles_usuario = [rol.nombre for rol in usuario.roles] if usuario.roles else []
+        except Exception as role_error:
+            print(f"DEBUG: Error obteniendo roles para usuario {usuario.id}: {str(role_error)}")
+            roles_usuario = []
+        
+        rol_principal = "ADMIN" if "ADMIN" in roles_usuario else "USER" if "USER" in roles_usuario else "GUEST"
+        
+        # Enriquecer con datos adicionales - corregir la columna
+        archivos_subidos = Archivo.query.filter_by(propietario_id=usuario.id).count()
+        espacio_usado_bytes = db.session.query(func.sum(Archivo.tamano_bytes)).filter_by(propietario_id=usuario.id).scalar() or 0
         
         user_data.update({
             'archivosSubidos': archivos_subidos,
             'espacioUsado': f"{espacio_usado_bytes / (1024**2):.1f} MB" if espacio_usado_bytes > 0 else "0 MB",
             'sesionesActivas': 1 if usuario.activo else 0,
-            'ubicacion': "N/A",
-            'rol': "USUARIO",
-            'estado': "ACTIVO" if usuario.activo else "SUSPENDIDO",
-            'telefono': getattr(usuario, 'telefono', 'N/A')
+            'rol': rol_principal,
+            'estado': "ACTIVO" if usuario.activo else "SUSPENDIDO", 
+            'roles': roles_usuario,
+            'telefono': getattr(usuario, 'telefono', 'N/A'),
+            'fechaRegistro': usuario.creado_en.isoformat() if usuario.creado_en else "N/A",
+            'ultimoAcceso': usuario.actualizado_en.isoformat() if usuario.actualizado_en else (usuario.creado_en.isoformat() if usuario.creado_en else "N/A")
         })
         
         return jsonify(user_data), 200
         
     except Exception as e:
+        print(f"DEBUG: Error en obtener_usuario_detalle: {str(e)}")
+        import traceback
+        traceback.print_exc()
         return jsonify({"error": f"Error obteniendo detalles del usuario: {str(e)}"}), 500
 
 @bp.patch("/usuarios/<int:usuario_id>/estado")
@@ -387,3 +402,121 @@ def obtener_estadisticas_storage():
         
     except Exception as e:
         return jsonify({"error": f"Error obteniendo estadísticas de storage: {str(e)}"}), 500
+
+@bp.post("/usuarios")
+@jwt_required()
+@requiere_admin
+def crear_usuario():
+    """Crear un nuevo usuario"""
+    try:
+        datos = request.json
+        
+        # Validar datos requeridos
+        if not all(campo in datos for campo in ['nombre_usuario', 'correo', 'contrasena', 'rol']):
+            return jsonify({"error": "Faltan campos requeridos"}), 400
+        
+        # Verificar si el usuario ya existe
+        if Usuario.query.filter_by(nombre_usuario=datos['nombre_usuario']).first():
+            return jsonify({"error": "El nombre de usuario ya existe"}), 400
+        
+        if Usuario.query.filter_by(correo=datos['correo']).first():
+            return jsonify({"error": "El correo ya está registrado"}), 400
+        
+        # Crear el usuario usando el servicio
+        usuario = UsuarioServicio.crear_usuario(
+            nombre_usuario=datos['nombre_usuario'],
+            correo=datos['correo'],
+            contrasena=datos['contrasena']
+        )
+        
+        # Asignar rol
+        from ..models.role import Rol
+        rol_nombre = datos['rol'].upper()
+        rol = Rol.query.filter_by(nombre=rol_nombre).first()
+        if not rol:
+            # Crear rol si no existe
+            rol = Rol(nombre=rol_nombre)
+            db.session.add(rol)
+            db.session.commit()
+        
+        # Asignar rol al usuario
+        if rol not in usuario.roles:
+            usuario.roles.append(rol)
+            db.session.commit()
+        
+        # Registrar auditoría
+        AuditoriaServicio.registrar_simple(
+            usuario_id=int(get_jwt_identity()),
+            accion='USUARIO_CREADO',
+            detalles=f"Usuario creado: {usuario.correo}"
+        )
+        
+        return jsonify({"mensaje": "Usuario creado exitosamente", "id": usuario.id}), 201
+        
+    except Exception as e:
+        print(f"DEBUG: Error en crear_usuario: {str(e)}")
+        import traceback
+        traceback.print_exc()
+        return jsonify({"error": f"Error creando usuario: {str(e)}"}), 500
+
+@bp.put("/usuarios/<int:usuario_id>")
+@jwt_required()
+@requiere_admin
+def actualizar_usuario(usuario_id):
+    """Actualizar un usuario existente"""
+    try:
+        usuario = Usuario.query.get_or_404(usuario_id)
+        datos = request.json
+        
+        # Actualizar campos básicos
+        if 'nombre_usuario' in datos:
+            # Verificar que no exista otro usuario con el mismo nombre
+            otro_usuario = Usuario.query.filter(
+                Usuario.nombre_usuario == datos['nombre_usuario'],
+                Usuario.id != usuario_id
+            ).first()
+            if otro_usuario:
+                return jsonify({"error": "El nombre de usuario ya existe"}), 400
+            usuario.nombre_usuario = datos['nombre_usuario']
+        
+        if 'correo' in datos:
+            # Verificar que no exista otro usuario con el mismo correo
+            otro_usuario = Usuario.query.filter(
+                Usuario.correo == datos['correo'],
+                Usuario.id != usuario_id
+            ).first()
+            if otro_usuario:
+                return jsonify({"error": "El correo ya está registrado"}), 400
+            usuario.correo = datos['correo']
+        
+        # Actualizar rol si se proporciona
+        if 'rol' in datos:
+            from ..models.role import Rol
+            rol_nombre = datos['rol'].upper()
+            rol = Rol.query.filter_by(nombre=rol_nombre).first()
+            if not rol:
+                # Crear rol si no existe
+                rol = Rol(nombre=rol_nombre)
+                db.session.add(rol)
+                db.session.commit()
+            
+            # Limpiar roles anteriores y asignar el nuevo
+            usuario.roles.clear()
+            usuario.roles.append(rol)
+        
+        db.session.commit()
+        
+        # Registrar auditoría
+        AuditoriaServicio.registrar_simple(
+            usuario_id=int(get_jwt_identity()),
+            accion='USUARIO_ACTUALIZADO',
+            detalles=f"Usuario actualizado: {usuario.correo}"
+        )
+        
+        return jsonify({"mensaje": "Usuario actualizado exitosamente"}), 200
+        
+    except Exception as e:
+        print(f"DEBUG: Error en actualizar_usuario: {str(e)}")
+        import traceback
+        traceback.print_exc()
+        return jsonify({"error": f"Error actualizando usuario: {str(e)}"}), 500
